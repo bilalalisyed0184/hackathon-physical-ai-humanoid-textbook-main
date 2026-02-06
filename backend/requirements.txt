@@ -1,6 +1,8 @@
 fastapi>=0.110.0
 uvicorn[standard]>=0.27.1
 
+openai-agents>=0.0.7
+
 requests>=2.31.0
 beautifulsoup4>=4.12.2
 cohere>=4.9.0
