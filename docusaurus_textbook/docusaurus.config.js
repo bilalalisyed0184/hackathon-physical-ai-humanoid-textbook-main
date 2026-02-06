@@ -7,7 +7,7 @@ const config = {
   favicon: 'img/favicon.ico',
 
   // Set the production url of your site here
-  url: 'https://physicalhumanoidaitextbook.vercel.app',
+  url: 'https://hackathon-physical-ai-humanoid-text-seven.vercel.app/',
   // Set the /<baseUrl>/ pathname under which your site is served
   // For GitHub pages deployment, it is often '/<projectName>/'
   baseUrl: '/',
@@ -72,7 +72,7 @@ const config = {
             label: 'Textbook',
           },
           {
-            href: 'https://github.com/subhankaladi',
+            href: 'https://github.com/bilalalisyed0184/hackathon-physical-ai-humanoid-textbook-main',
             label: 'GitHub',
             position: 'right',
           },
@@ -109,15 +109,15 @@ const config = {
             items: [
               {
                 label: 'Instagram',
-                href: 'https://instagram.com/subhan_kaladi',
+                href: 'https://www.instagram.com/cyb3r.syed_bilal_ali/?__pwa=1',
               },
               {
                 label: 'LinkenIN',
-                href: 'https://www.linkedin.com/in/subhankaladi/',
+                href: 'https://www.linkedin.com/in/syed-bilal-ali-shah-948bb1270/',
               },
               {
                 label: '(X)Twitter',
-                href: 'https://x.com/subhankaladi15',
+                href: '#',
               },
             ],
           },
@@ -126,12 +126,12 @@ const config = {
             items: [
               {
                 label: 'GitHub',
-                href: 'https://github.com/subhankaladi',
+                href: 'https://github.com/bilalalisyed0184',
               },
             ],
           },
         ],
-        copyright: `Copyright � ${new Date().getFullYear()} Physical AI & Humanoid Robotics Textbook, Built with ❤️ by Subhan Kaladi.`,
+        copyright: `Copyright � ${new Date().getFullYear()} Physical AI & Humanoid Robotics Textbook, Built with ❤️ by Syed bilal ali.`,
       },
       prism: {
         theme: prismThemes.github,
