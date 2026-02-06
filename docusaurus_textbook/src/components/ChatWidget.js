@@ -20,7 +20,7 @@ export default function ChatWidget() {
 
     try {
       const res = await axios.post(
-        "https://subhankaladi-deploy-youtube.hf.space/ask",
+        "https://hackathon-physical-ai-humanoid-textbook-main-production.up.railway.app/chat",
         {
           query: currentInput   // ✅ FIXED: backend expects "query"
         },
