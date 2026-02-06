@@ -20,10 +20,10 @@ export default function ChatWidget() {
 
     try {
       const res = await axios.post(
-        "https://hackathon-physical-ai-humanoid-textbook-main-production.up.railway.app/chat",
-        {
-          query: currentInput   // ✅ FIXED: backend expects "query"
-        },
+  "https://hackathon-physical-ai-humanoid-textbook-main-production.up.railway.app/ask",
+        { 
+          query: currentInput
+        },   // backend expects "query" field
         {
           headers: {
             "Content-Type": "application/json"
