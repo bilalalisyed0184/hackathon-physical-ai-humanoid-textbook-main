@@ -21,7 +21,7 @@ class RAGRetriever:
         self.cohere_client = cohere.Client(api_key=os.getenv("COHERE_API_KEY"))
 
         # Initialize Qdrant client
-        qdrant_url = os.getenv("QDRANT_URL", "http://localhost:6333")
+        qdrant_url = os.getenv("QDRANT_URL", "https://e5a23b7f-fae6-4fc3-a806-d274200b0882.us-east4-0.gcp.cloud.qdrant.io")
         qdrant_api_key = os.getenv("QDRANT_API_KEY")
 
         if qdrant_api_key:
