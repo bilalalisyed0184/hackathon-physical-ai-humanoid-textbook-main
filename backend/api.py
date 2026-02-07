@@ -6,6 +6,8 @@ from pydantic import BaseModel
 from typing import List, Optional
 from dotenv import load_dotenv
 import logging
+from rag_agent_groq import RAGAgent
+
 
 # Load environment variables
 load_dotenv()
