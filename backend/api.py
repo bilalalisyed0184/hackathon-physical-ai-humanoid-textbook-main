@@ -3,7 +3,7 @@ import asyncio
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import List, Optional, Dict
+from typing import List, Optional
 from dotenv import load_dotenv
 import logging
 
@@ -14,26 +14,30 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Import the existing RAG agent functionality
-from agent import RAGAgent
+# IMPORTANT: Import Groq-based RAG agent
+from rag_agent_groq import RAGAgent
 
-# Create FastAPI app
+# ==============================
+# FastAPI App
+# ==============================
 app = FastAPI(
-    title="RAG Agent API",
-    description="API for RAG Agent with document retrieval and question answering",
-    version="1.0.0"
+    title="RAG Agent API (Groq)",
+    description="API for RAG Agent using Groq LLM with document retrieval",
+    version="1.1.0"
 )
 
-# Add CORS middleware for development
+# CORS (adjust origins in production)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, replace with specific origins
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Pydantic models
+# ==============================
+# Schemas
+# ==============================
 class QueryRequest(BaseModel):
     query: str
 
@@ -47,8 +51,8 @@ class QueryResponse(BaseModel):
     answer: str
     sources: List[str]
     matched_chunks: List[MatchedChunk]
+    status: str  # success | error | empty
     error: Optional[str] = None
-    status: str  # "success", "error", "empty"
     query_time_ms: Optional[float] = None
     confidence: Optional[str] = None
 
@@ -56,84 +60,76 @@ class HealthResponse(BaseModel):
     status: str
     message: str
 
-# Global RAG agent instance
-rag_agent = None
+# ==============================
+# Global Agent
+# ==============================
+rag_agent: Optional[RAGAgent] = None
 
+# ==============================
+# Startup
+# ==============================
 @app.on_event("startup")
 async def startup_event():
-    """Initialize the RAG agent on startup"""
     global rag_agent
-    logger.info("Initializing RAG Agent...")
+    logger.info("Initializing Groq RAG Agent...")
     try:
         rag_agent = RAGAgent()
-        logger.info("RAG Agent initialized successfully")
+        logger.info("Groq RAG Agent initialized successfully")
     except Exception as e:
         logger.error(f"Failed to initialize RAG Agent: {e}")
-        raise
+        raise RuntimeError("RAG Agent startup failed")
 
+# ==============================
+# Routes
+# ==============================
 @app.post("/ask", response_model=QueryResponse)
 async def ask_rag(request: QueryRequest):
-    """
-    Process a user query through the RAG agent and return the response
-    """
-    logger.info(f"Processing query: {request.query[:50]}...")
+    if not request.query or not request.query.strip():
+        raise HTTPException(status_code=400, detail="Query cannot be empty")
+
+    if len(request.query) > 2000:
+        raise HTTPException(status_code=400, detail="Query too long (max 2000 chars)")
+
+    if rag_agent is None:
+        raise HTTPException(status_code=503, detail="RAG Agent not initialized")
+
+    logger.info(f"Incoming query: {request.query[:60]}...")
 
     try:
-        # Validate input
-        if not request.query or len(request.query.strip()) == 0:
-            raise HTTPException(status_code=400, detail="Query cannot be empty")
+        result = rag_agent.query(request.query)
 
-        if len(request.query) > 2000:
-            raise HTTPException(status_code=400, detail="Query too long, maximum 2000 characters")
+        status = "success"
+        if not result.get("answer"):
+            status = "empty"
 
-        # Process query through RAG agent
-        response = rag_agent.query_agent(request.query)
-
-        # Format response
-        formatted_response = QueryResponse(
-            answer=response.get("answer", ""),
-            sources=response.get("sources", []),
-            matched_chunks=[
-                MatchedChunk(
-                    content=chunk.get("content", ""),
-                    url=chunk.get("url", ""),
-                    position=chunk.get("position", 0),
-                    similarity_score=chunk.get("similarity_score", 0.0)
-                )
-                for chunk in response.get("matched_chunks", [])
-            ],
-            error=response.get("error"),
-            status="error" if response.get("error") else "success",
-            query_time_ms=response.get("query_time_ms"),
-            confidence=response.get("confidence")
-        )
-
-        logger.info(f"Query processed successfully in {response.get('query_time_ms', 0):.2f}ms")
-        return formatted_response
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error processing query: {e}")
         return QueryResponse(
-            answer="",
-            sources=[],
-            matched_chunks=[],
-            error=str(e),
-            status="error"
+            answer=result.get("answer", ""),
+            sources=result.get("sources", []),
+            matched_chunks=[
+                MatchedChunk(**chunk) for chunk in result.get("matched_chunks", [])
+            ],
+            status=status,
+            error=result.get("error"),
+            query_time_ms=result.get("query_time_ms"),
+            confidence=result.get("confidence"),
         )
+
+    except Exception as e:
+        logger.error(f"Query processing failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.get("/health", response_model=HealthResponse)
 async def health_check():
-    """
-    Health check endpoint
-    """
     return HealthResponse(
         status="healthy",
-        message="RAG Agent API is running"
+        message="Groq RAG Agent API is running"
     )
 
-# For running with uvicorn
+
+# ==============================
+# Local run
+# ==============================
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
