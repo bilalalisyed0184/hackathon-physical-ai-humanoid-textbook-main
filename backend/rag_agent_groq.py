@@ -63,7 +63,7 @@ def retrieve_information(query: str) -> Dict:
 # RAG Agent
 # ==============================
 class RAGAgent:
-    def __init__(self, model: str = "llama2-13b-chat"):
+    def __init__(self, model: str = "llama3-70b-8192"):
         self.model = model
         logger.info("RAG Agent initialized with Groq")
 
