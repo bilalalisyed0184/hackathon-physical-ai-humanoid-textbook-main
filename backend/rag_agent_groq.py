@@ -1,114 +1,78 @@
 import os
-import time
 import logging
-from dotenv import load_dotenv
-from groq import Groq
-
+import requests
 from retrieving import RAGRetriever
+from dotenv import load_dotenv
 
 load_dotenv()
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("rag_agent_groq")
+
+
+CHAPTERS_TEXT = """Hi 👋 How can I help you?
+
+This textbook contains the following chapters:
+
+1. ROS 2 Basics  
+2. Python Agents & rclpy  
+3. URDF Humanoid Modeling  
+4. Simulation Techniques  
+5. AI Control Systems  
+
+You can ask questions from these chapters and I’ll help you 😊
+"""
 
 
 class GroqRAGAgent:
     def __init__(self):
-        self.client = Groq(api_key=os.getenv("GROQ_API_KEY"))
         self.retriever = RAGRetriever()
+        self.api_key = os.getenv("GROQ_API_KEY")
+        self.model = "llama3-8b-8192"  # ✅ ACTIVE MODEL
 
-        # session memory (simple)
-        self.greeted = False
-        self.active_chapter = None
+    def _call_groq(self, prompt: str) -> str:
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
+        }
 
-        logger.info("RAG Agent initialized with Groq")
+        payload = {
+            "model": self.model,
+            "messages": [
+                {"role": "system", "content": "You are a helpful textbook assistant."},
+                {"role": "user", "content": prompt},
+            ],
+            "temperature": 0.3,
+        }
 
-    # =========================
-    # Public Entry
-    # =========================
-    def answer(self, query: str) -> str:
-        q = query.lower().strip()
-
-        # 1️⃣ greeting (ONLY ONCE)
-        greetings = ["hi", "hello", "hey", "assalam", "salam"]
-        if q in greetings and not self.greeted:
-            self.greeted = True
-            return self._intro_message()
-
-        # 2️⃣ chapter selection
-        if any(x in q for x in ["chapter 1", "chap 1", "ros 2", "ros2"]):
-            self.active_chapter = "ROS 2 Basics"
-            return self._chapter_1_intro()
-
-        # 3️⃣ generic help AFTER chapter selected
-        if "help" in q and self.active_chapter:
-            return self._help_prompt()
-
-        # 4️⃣ actual RAG answer
-        return self._rag_answer(query)
-
-    # =========================
-    # Static Responses
-    # =========================
-    def _intro_message(self) -> str:
-        return (
-            "Hi 👋 How can I help you?\n\n"
-            "This textbook contains the following chapters:\n"
-            "1. ROS 2 Basics\n"
-            "2. Python Agents & rclpy\n"
-            "3. URDF Humanoid Modeling\n"
-            "4. Simulation Techniques\n"
-            "5. AI Control Systems\n\n"
-            "You can ask questions from these chapters 😊"
+        r = requests.post(
+            "https://api.groq.com/openai/v1/chat/completions",
+            headers=headers,
+            json=payload,
+            timeout=15,
         )
 
-    def _chapter_1_intro(self) -> str:
-        return (
-            "Great 👍 You selected **Chapter 1: ROS 2 Basics**.\n\n"
-            "This chapter covers:\n"
-            "• What is ROS 2\n"
-            "• Nodes\n"
-            "• Topics\n"
-            "• Services\n"
-            "• ROS 2 architecture\n\n"
-            "What would you like to learn first?"
-        )
+        r.raise_for_status()
+        return r.json()["choices"][0]["message"]["content"]
 
-    def _help_prompt(self) -> str:
-        return (
-            f"Sure 🙂 Ask me anything from **{self.active_chapter}**.\n\n"
-            "For example:\n"
-            "• What is a ROS 2 node?\n"
-            "• How do ROS 2 topics work?\n"
-            "• Difference between ROS 1 and ROS 2?"
-        )
+    def answer(self, query: str) -> dict:
+        query = query.strip()
 
-    # =========================
-    # RAG + Groq
-    # =========================
-    def _rag_answer(self, query: str) -> str:
-        start = time.time()
+        # 🔹 Greeting / empty
+        if len(query) < 3:
+            return self._fallback()
 
-        retrieval_json = self.retriever.retrieve(query)
-        data = eval(retrieval_json)  # safe here (internal)
+        chunks, time_ms = self.retriever.retrieve(query)
 
-        chunks = data.get("results", [])
-
+        # 🔹 NOTHING FOUND → chapters guide
         if not chunks:
-            return (
-                "Answer not found in the provided documents.\n\n"
-                "You can ask questions related to **ROS 2 Basics** chapters 🙂"
-            )
+            return self._fallback()
 
-        context = "\n\n".join(
-            f"- {c['content']}" for c in chunks[:4]
-        )
+        context = "\n\n".join(c["content"][:800] for c in chunks)
 
         prompt = f"""
-You are a helpful textbook assistant.
-Answer ONLY from the given context.
+Answer ONLY from the textbook content below.
 
-Context:
+Textbook Content:
 {context}
 
 Question:
@@ -116,14 +80,26 @@ Question:
 """
 
         try:
-            response = self.client.chat.completions.create(
-                model="llama-3.1-8b-instant",
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0.2,
-            )
-
-            return response.choices[0].message.content.strip()
-
+            answer = self._call_groq(prompt)
         except Exception as e:
-            logger.error(f"Groq error: {e}")
-            return "Sorry, I encountered an error while generating the response."
+            logger.error(e)
+            return self._fallback(error=str(e))
+
+        return {
+            "answer": answer,
+            "sources": [c["url"] for c in chunks if c["url"]],
+            "matched_chunks": chunks,
+            "query_time_ms": time_ms,
+            "status": "success",
+            "confidence": "high",
+        }
+
+    def _fallback(self, error: str | None = None):
+        return {
+            "answer": CHAPTERS_TEXT,
+            "sources": [],
+            "matched_chunks": [],
+            "status": "empty",
+            "confidence": "n/a",
+            "error": error,
+        }
