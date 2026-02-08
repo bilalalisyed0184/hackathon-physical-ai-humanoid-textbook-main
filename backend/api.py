@@ -14,18 +14,20 @@ app.add_middleware(
 
 agent = GroqRAGAgent()
 
-
 class QueryRequest(BaseModel):
-    query: str
-
+    query: str = ""  # default empty string to avoid None issues
 
 @app.post("/ask")
 async def ask(data: QueryRequest):
-    if not data.query.strip():
-        raise HTTPException(status_code=400, detail="Query cannot be empty")
+    query_text = data.query.strip() if data.query else ""
+    if not query_text:
+        # fallback greeting if empty
+        return {
+            "answer": "Hi 👋 How can I help you?\nThis textbook contains chapters 1-5. You can ask questions from them 😊"
+        }
 
-    return agent.answer(data.query)
-
+    answer = agent.answer(query_text)
+    return {"answer": answer}
 
 @app.get("/health")
 async def health():
