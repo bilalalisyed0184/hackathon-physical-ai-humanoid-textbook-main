@@ -24,8 +24,7 @@ async def ask(data: QueryRequest):
     if not data.query.strip():
         raise HTTPException(status_code=400, detail="Query cannot be empty")
 
-    answer = agent.answer(data.query)
-    return {"answer": answer}
+    return agent.answer(data.query)
 
 
 @app.get("/health")
