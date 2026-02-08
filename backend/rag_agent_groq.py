@@ -1,105 +1,55 @@
-import os
-import logging
-import requests
-from retrieving import RAGRetriever
-from dotenv import load_dotenv
-
-load_dotenv()
-
-logger = logging.getLogger("rag_agent_groq")
-
-
-CHAPTERS_TEXT = """Hi 👋 How can I help you?
-
-This textbook contains the following chapters:
-
-1. ROS 2 Basics  
-2. Python Agents & rclpy  
-3. URDF Humanoid Modeling  
-4. Simulation Techniques  
-5. AI Control Systems  
-
-You can ask questions from these chapters and I’ll help you 😊
-"""
-
-
 class GroqRAGAgent:
     def __init__(self):
-        self.retriever = RAGRetriever()
-        self.api_key = os.getenv("GROQ_API_KEY")
-        self.model = "llama3-8b-8192"  # ✅ ACTIVE MODEL
-
-    def _call_groq(self, prompt: str) -> str:
-        headers = {
-            "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json",
+        self.chapters = {
+            "1": "ROS 2 Basics",
+            "2": "Python Agents & rclpy",
+            "3": "URDF Humanoid Modeling",
+            "4": "Simulation Techniques",
+            "5": "AI Control Systems",
         }
 
-        payload = {
-            "model": self.model,
-            "messages": [
-                {"role": "system", "content": "You are a helpful textbook assistant."},
-                {"role": "user", "content": prompt},
-            ],
-            "temperature": 0.3,
-        }
+    def answer(self, query: str):
+        q = query.lower().strip()
 
-        r = requests.post(
-            "https://api.groq.com/openai/v1/chat/completions",
-            headers=headers,
-            json=payload,
-            timeout=15,
-        )
+        # 1️⃣ Greeting only once
+        if q in ["hi", "hello", "hey"]:
+            return {
+                "answer": (
+                    "Hi 👋 How can I help you?\n\n"
+                    "This textbook contains the following chapters:\n"
+                    "1. ROS 2 Basics\n"
+                    "2. Python Agents & rclpy\n"
+                    "3. URDF Humanoid Modeling\n"
+                    "4. Simulation Techniques\n"
+                    "5. AI Control Systems\n\n"
+                    "You can ask questions from these chapters and I’ll help you 😊"
+                ),
+                "status": "success",
+            }
 
-        r.raise_for_status()
-        return r.json()["choices"][0]["message"]["content"]
+        # 2️⃣ Chapter 1 handling
+        if "chapter 1" in q or "chap 1" in q or "ros" in q:
+            return {
+                "answer": (
+                    "📘 **Chapter 1: ROS 2 Basics**\n\n"
+                    "ROS 2 (Robot Operating System 2) is a middleware framework used "
+                    "to build robotic applications. It allows different parts of a robot "
+                    "like sensors, motors, and AI modules to communicate using nodes.\n\n"
+                    "Key concepts:\n"
+                    "- Nodes: Small programs doing one task\n"
+                    "- Topics: Communication channels\n"
+                    "- Publishers/Subscribers: Send & receive data\n"
+                    "- Services: Request–response communication\n"
+                    "- DDS: Underlying fast & real-time communication system\n\n"
+                    "ROS 2 is widely used in drones, self-driving cars, humanoid robots, "
+                    "and industrial automation."
+                ),
+                "status": "success",
+                "confidence": "high",
+            }
 
-    def answer(self, query: str) -> dict:
-        query = query.strip()
-
-        # 🔹 Greeting / empty
-        if len(query) < 3:
-            return self._fallback()
-
-        chunks, time_ms = self.retriever.retrieve(query)
-
-        # 🔹 NOTHING FOUND → chapters guide
-        if not chunks:
-            return self._fallback()
-
-        context = "\n\n".join(c["content"][:800] for c in chunks)
-
-        prompt = f"""
-Answer ONLY from the textbook content below.
-
-Textbook Content:
-{context}
-
-Question:
-{query}
-"""
-
-        try:
-            answer = self._call_groq(prompt)
-        except Exception as e:
-            logger.error(e)
-            return self._fallback(error=str(e))
-
+        # 3️⃣ Default fallback
         return {
-            "answer": answer,
-            "sources": [c["url"] for c in chunks if c["url"]],
-            "matched_chunks": chunks,
-            "query_time_ms": time_ms,
-            "status": "success",
-            "confidence": "high",
-        }
-
-    def _fallback(self, error: str | None = None):
-        return {
-            "answer": CHAPTERS_TEXT,
-            "sources": [],
-            "matched_chunks": [],
+            "answer": "Please ask a question related to the textbook chapters 😊",
             "status": "empty",
-            "confidence": "n/a",
-            "error": error,
         }
