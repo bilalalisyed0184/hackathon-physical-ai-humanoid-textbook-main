@@ -9,7 +9,7 @@ class GroqRAGAgent:
             "5": "AI Control Systems",
         }
 
-        # Detailed chapter content (example, can expand)
+        # Detailed chapter content
         self.chapter_content = {
             "1": (
                 "📘 **Chapter 1: ROS 2 Basics**\n\n"
@@ -45,11 +45,14 @@ class GroqRAGAgent:
             ),
         }
 
+        # Greeting keywords
+        self.greetings = ["hi", "hello", "hey", "hiya", "hii"]
+
     def answer(self, query: str):
         q = query.lower().strip()
 
-        # Greeting only for hi/hello/hey
-        if q in ["hi", "hello", "hey"]:
+        # Check greetings
+        if any(greet in q for greet in self.greetings):
             return (
                 "Hi 👋 How can I help you?\n\n"
                 "This textbook contains the following chapters:\n"
@@ -61,10 +64,11 @@ class GroqRAGAgent:
                 "You can ask questions from these chapters and I’ll help you 😊"
             )
 
-        # Check for chapter keywords
+        # Check for chapter keywords (flexible match)
         for chap_num, chap_name in self.chapters.items():
-            if chap_num in q or chap_name.lower() in q:
+            # Match either chapter number or chapter name words
+            if f"chap {chap_num}" in q or chap_name.lower() in q or chap_num in q:
                 return self.chapter_content[chap_num]
 
-        # Fallback
+        # Fallback message
         return "Please ask a question related to the textbook chapters 😊"
